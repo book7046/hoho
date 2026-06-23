@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hoho 療癒卡</title>
+    
+    <!-- 載入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 載入 Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+
+    <style>
+        body { 
+            font-family: 'Noto Sans TC', sans-serif; 
+            background-color: #fdfbf7;
+            color: #4a4a4a;
+        }
+
+        /* 隱藏元素專用 */
+        .hidden { display: none !important; }
+
+        /* 洗牌動畫相關 */
+        .shuffle-deck {
+            position: relative;
+            display: inline-block;
+            transition: transform 0.5s ease;
+        }
+        @keyframes shuffle-anim {
+            0% { transform: translateX(0) rotate(0deg); z-index: 10; }
+            25% { transform: translateX(60px) rotate(15deg); z-index: 20; }
+            50% { transform: translateX(-60px) rotate(-15deg); z-index: 20; }
+            75% { transform: translateX(40px) rotate(5deg); z-index: 10; }
+            100% { transform: translateX(0) rotate(0deg); z-index: 10; }
+        }
+        .animating-shuffle {
+            animation: shuffle-anim 0.6s ease-in-out infinite;
+        }
+
+        /* 扇形抽牌區 */
+        .fan-container { 
+            position: relative; 
+            width: 100%; 
+            height: 400px; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            overflow: hidden; 
+            margin-top: 2rem;
+        }
+        .fan-card { 
+            position: absolute; 
+            /* 修改為 14:8 比例的橫式尺寸 */
+            width: 105px; 
+            height: 60px; 
+            transition: all 0.3s ease; 
+            transform-origin: bottom center; 
+            cursor: pointer; 
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            background: linear-gradient(135deg, #fcd34d, #fb923c);
+            background-size: cover;
+            background-position: center;
+        }
+        .fan-card:hover { 
+            transform: translateY(-20px) scale(1.2) !important; 
+            z-index: 200 !important; 
+            box-shadow: 0 10px 15px rgba(0,0,0,0.3);
+            border: 2px solid white;
+        }
+        .fan-card.selected { 
+            opacity: 0; 
+            pointer-events: none; 
+            transform: translateY(-50px) scale(1.5) !important;
+        }
+
+        /* 翻牌特效 (3D Flip Card) - 修改為橫式 14:8 */
+        .flip-box {
+            background-color: transparent;
+            width: 100%;
+            max-width: 500px; /* 加寬以適合橫式 */
+            aspect-ratio: 14 / 8; /* 強制 14:8 比例 */
+            perspective: 1000px;
+            margin: 0 auto;
+            cursor: pointer;
+        }
+        .flip-box-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            text-align: center;
+            transition: transform 0.8s cubic-bezier(0.4, 0.2, 0.2, 1);
+            transform-style: preserve-3d;
+        }
+        .flip-box.flipped .flip-box-inner {
+            transform: rotateY(180deg);
+        }
+        .flip-box-front, .flip-box-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 1rem;
+            border: 4px solid white;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        /* 初始狀態顯示的是卡背 */
+        .flip-box-front {
+            background: linear-gradient(135deg, #fcd34d, #fb923c);
+        }
+        /* 翻轉後顯示卡片正面 */
+        .flip-box-back {
+            background-color: white;
+            transform: rotateY(180deg);
+        }
+
+        /* 自訂捲軸 */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #c5c5c5; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+        
+        /* 漸入動畫 */
+        .fade-in { animation: fadeIn 0.5s ease-out forwards; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* 自訂模態框背景 */
+        .modal-overlay { background-color: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px); }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- 頂部導覽列 -->
+    <nav class="bg-white shadow-sm px-6 py-4 flex justify-between items-center sticky top-0 z-50">
+        <div class="flex items-center gap-2 text-amber-700 font-bold text-xl cursor-pointer" onclick="switchMainView('user')">
+            <span class="text-2xl">✨</span> Hoho 療癒卡
+        </div>
+        <div class="flex gap-4">
+            <button id="navUserBtn" onclick="switchMainView('user')" class="px-4 py-2 rounded-full font-medium transition-colors bg-amber-100 text-amber-800">
+                開始抽卡
+            </button>
+            <button id="navAdminBtn" onclick="switchMainView('admin')" class="px-4 py-2 rounded-full font-medium transition-colors text-gray-500 hover:bg-gray-100">
+                圖檔預覽
+            </button>
+        </div>
+    </nav>
+
+    <main class="flex-1 overflow-y-auto relative">
+        
+        <!-- ==================== 使用者模式 (抽卡流程) ==================== -->
+        <div id="userView" class="w-full h-full p-4">
+            
+            <!-- Step 1: 詢問問題 -->
+            <div id="questionSection" class="max-w-md mx-auto mt-12 text-center fade-in">
+                <div class="text-6xl mb-6">🌱</div>
+                <h1 class="text-3xl font-bold text-gray-800 mb-4">靜下心來，詢問您的問題</h1>
+                <p class="text-gray-500 mb-8">在心裡默念，或寫下您目前遇到的困惑、需要指引的事情，然後開始抽卡。</p>
+                
+                <textarea id="questionInput" placeholder="請輸入您的問題... (選填)" class="w-full p-4 border border-gray-200 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-500 mb-6 resize-none bg-white" rows="3"></textarea>
+                
+                <button onclick="goToShuffle()" class="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-400 text-white rounded-xl font-bold text-lg hover:from-amber-600 hover:to-orange-500 transition-all shadow-md transform hover:-translate-y-1">
+                    開始洗牌
+                </button>
+            </div>
+
+            <!-- Step 2: 洗牌動畫 -->
+            <div id="shuffleSection" class="max-w-md mx-auto mt-20 text-center hidden fade-in">
+                <h2 class="text-2xl font-bold text-gray-700 mb-12" id="shuffleText">準備洗牌...</h2>
+                
+                <!-- 洗牌牌疊也改為橫式 (w-56 h-32 約為 14:8) -->
+                <div class="shuffle-deck w-56 h-32 mx-auto relative perspective-1000">
+                    <!-- 洗牌時展示不同的牌背 (隨機示意 1, 2, 3) -->
+                    <div id="deckAnim1" class="absolute inset-0 bg-gradient-to-br from-amber-200 to-amber-400 rounded-xl shadow-xl border-4 border-white flex justify-center items-center z-30 overflow-hidden">
+                        <img src="assets/images/back_1.jpg" class="w-full h-full object-cover" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                        <div class="hidden flex-col items-center justify-center w-full h-full">
+                            <span class="text-white opacity-50 text-4xl">✨</span>
+                        </div>
+                    </div>
+                    <div id="deckAnim2" class="absolute inset-0 bg-gradient-to-br from-amber-300 to-orange-300 rounded-xl shadow-xl border-4 border-white z-20 overflow-hidden" style="transform: rotate(5deg) translate(5px, 5px);">
+                        <img src="assets/images/back_2.jpg" class="w-full h-full object-cover" onerror="this.style.display='none';">
+                    </div>
+                    <div id="deckAnim3" class="absolute inset-0 bg-gradient-to-br from-orange-200 to-amber-300 rounded-xl shadow-xl border-4 border-white z-10 overflow-hidden" style="transform: rotate(-5deg) translate(-5px, 5px);">
+                        <img src="assets/images/back_3.jpg" class="w-full h-full object-cover" onerror="this.style.display='none';">
+                    </div>
+                </div>
+                
+                <div class="mt-16 space-y-4">
+                    <button id="shuffleCardsBtn" onclick="performShuffle()" class="bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold py-3 px-10 rounded-full shadow-md hover:scale-105 transition-transform text-lg">
+                        🔄 洗牌 (<span id="shuffleCount">3</span>)
+                    </button>
+                    <button id="cutCardsBtn" onclick="goToDraw()" class="bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold py-3 px-10 rounded-full shadow-md hover:scale-105 transition-transform text-lg hidden">
+                        ✨ 展開牌陣
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 3: 扇形抽牌區 -->
+            <div id="drawSection" class="max-w-4xl mx-auto mt-10 hidden fade-in">
+                <div class="text-center mb-4">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-2">請憑直覺選取一張卡片</h2>
+                    <p class="text-gray-500">宇宙已經為您準備好專屬的訊息</p>
+                </div>
+                
+                <div class="fan-container">
+                    <div id="cardDeck"></div>
+                </div>
+            </div>
+
+            <!-- Step 4: 抽卡結果 -->
+            <div id="resultSection" class="max-w-4xl mx-auto mt-10 pb-20 hidden fade-in">
+                
+                <div id="questionDisplayArea" class="mb-10 text-center w-full max-w-lg mx-auto hidden">
+                    <p class="text-sm text-gray-400 mb-2">您的問題</p>
+                    <p id="displayQuestion" class="text-xl text-gray-700 italic">「」</p>
+                </div>
+
+                <div class="text-center mb-6">
+                    <p class="text-gray-500 text-sm animate-pulse">點擊卡片翻開</p>
+                </div>
+
+                <!-- 翻牌容器 -->
+                <div id="resultCardBox" class="flip-box" onclick="flipCard()">
+                    <div class="flip-box-inner" id="flipInner">
+                        <!-- 卡背 (預設) -->
+                        <div class="flip-box-front" id="resultCardBack">
+                            <!-- JS 會自動填入該卡片對應的 assets/images/back_X.jpg -->
+                        </div>
+                        <!-- 卡片正面 -->
+                        <div class="flip-box-back">
+                            <img id="resultCardFront" src="" alt="卡片正面" class="w-full h-full object-cover">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="resultActions" class="mt-12 text-center opacity-0 transition-opacity duration-1000 transform translate-y-4">
+                    <button onclick="resetApp()" class="px-10 py-4 bg-gray-900 text-white rounded-full font-bold hover:bg-gray-800 transition-all shadow-lg hover:shadow-xl hover:-translate-y-1">
+                        再次抽卡
+                    </button>
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- ==================== 管理者模式 (圖檔管理預覽) ==================== -->
+        <div id="adminView" class="w-full max-w-6xl mx-auto p-6 hidden fade-in">
+            <div class="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4 text-blue-800 text-sm">
+                💡 <strong>提示：</strong> 您目前使用的是「讀取資料夾圖檔」模式。若要更新圖片，請直接替換專案資料夾中 <code>assets/images/</code> 裡的檔案並上傳至 GitHub。<br>
+                目前卡片尺寸已調整為 <strong>橫式 14 : 8</strong> 比例。
+            </div>
+
+            <div class="flex justify-between items-center mb-8">
+                <h2 class="text-2xl font-bold text-gray-800">卡片預覽區 (共 140 張)</h2>
+                <div class="flex gap-2">
+                    <button onclick="resetToDefaults()" class="px-4 py-2 text-sm text-red-600 border border-red-200 bg-red-50 rounded-lg hover:bg-red-100 transition-colors">
+                        清除本機暫存設定
+                    </button>
+                    <input type="text" id="searchInput" placeholder="搜尋卡片編號..." class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 w-48" onkeyup="renderAdminGrid()">
+                </div>
+            </div>
+
+            <!-- 卡片網格 (原本的 col-cols 改寬一點以適應橫圖) -->
+            <div id="adminGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                <!-- 由 JavaScript 動態生成 -->
+            </div>
+        </div>
+
+    </main>
+
+    <!-- ==================== 編輯圖片模態框 (Modal) ==================== -->
+    <div id="editModal" class="fixed inset-0 modal-overlay z-[100] hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl w-full max-w-4xl overflow-hidden shadow-2xl flex flex-col md:flex-row max-h-[90vh]">
+            
+            <!-- 左側預覽 -->
+            <div class="w-full md:w-1/2 p-6 bg-gray-50 border-r border-gray-100 flex flex-col items-center justify-center overflow-y-auto">
+                <div class="flex flex-col gap-6 w-full justify-center items-center">
+                    <div class="flex flex-col items-center w-full">
+                        <p class="text-sm font-medium text-gray-500 mb-2">正面預覽</p>
+                        <!-- 改為 aspect-[14/8] 橫式比例 -->
+                        <div class="aspect-[14/8] w-full max-w-[320px] shadow-lg rounded-xl overflow-hidden border-4 border-white bg-white">
+                            <img id="previewFront" src="" class="w-full h-full object-cover">
+                        </div>
+                    </div>
+                    <div class="flex flex-col items-center opacity-80 w-full">
+                        <p class="text-sm font-medium text-gray-500 mb-2" id="previewBackLabel">背面預覽</p>
+                        <!-- 改為 aspect-[14/8] 橫式比例 -->
+                        <div class="aspect-[14/8] w-full max-w-[320px] shadow-lg rounded-xl overflow-hidden border-4 border-white bg-gray-200 flex items-center justify-center" id="previewBackContainer">
+                            <!-- JS 動態填入圖片或預設文字 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右側表單 -->
+            <div class="w-full md:w-1/2 flex flex-col">
+                <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-white">
+                    <h3 class="font-bold text-lg text-amber-800" id="editModalTitle">暫時覆蓋卡片</h3>
+                    <button onclick="closeEditModal()" class="text-gray-400 hover:text-gray-700 text-2xl leading-none">&times;</button>
+                </div>
+                
+                <div class="p-6 space-y-6 flex-1 overflow-y-auto bg-white">
+                    <input type="hidden" id="editingCardId">
+                    
+                    <!-- 正面圖片 -->
+                    <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                        <label class="block text-sm font-bold text-gray-700 mb-3">設定正面圖片 (14:8)</label>
+                        <div class="relative mb-3">
+                            <input type="file" accept="image/*" onchange="handleFileUpload(event, 'front')" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" title="上傳圖片">
+                            <div class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors font-medium cursor-pointer">
+                                📤 暫時從裝置上傳圖片
+                            </div>
+                        </div>
+                        <div class="text-center text-xs text-gray-400 mb-2">- 或 -</div>
+                        <input type="text" id="inputFrontUrl" placeholder="輸入圖片網址 (https://...)" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm" oninput="updatePreview('front')">
+                    </div>
+
+                    <!-- 背面圖片 -->
+                    <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                        <label class="block text-sm font-bold text-gray-700 mb-3">設定專屬背面圖片 (選填)</label>
+                        <div class="relative mb-3">
+                            <input type="file" accept="image/*" onchange="handleFileUpload(event, 'back')" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" title="上傳圖片">
+                            <div class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors font-medium cursor-pointer">
+                                📤 暫時從裝置上傳圖片
+                            </div>
+                        </div>
+                        <div class="text-center text-xs text-gray-400 mb-2">- 或 -</div>
+                        <input type="text" id="inputBackUrl" placeholder="留空則使用預設群組卡背" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm" oninput="updatePreview('back')">
+                    </div>
+                </div>
+
+                <div class="px-6 py-4 border-t border-gray-100 flex justify-end gap-3 bg-gray-50 shrink-0">
+                    <button onclick="closeEditModal()" class="px-4 py-2 text-gray-600 font-medium hover:bg-gray-200 rounded-lg transition-colors">取消</button>
+                    <button onclick="saveCardEdit()" class="px-6 py-2 bg-amber-600 text-white font-medium hover:bg-amber-700 rounded-lg transition-colors shadow-sm">儲存設定</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ==================== JavaScript 應用程式邏輯 ==================== -->
+    <script>
+        // --- 核心資料管理 ---
+        let cardsData = [];
+        const TOTAL_CARDS = 140;
+        let currentQuestion = "";
+        let shuffleRemaining = 3;
+        let drawnCard = null;
+
+        // 【重點更新】7 種牌背，每組 20 張
+        function generateDefaultCards() {
+            const arr = [];
+            for (let i = 1; i <= TOTAL_CARDS; i++) {
+                // 計算這是第幾組牌背 (1~7)
+                const backGroup = Math.ceil(i / 20); 
+                arr.push({
+                    id: i,
+                    frontImage: `assets/images/front_${i}.jpg`,
+                    backImage: `assets/images/back_${backGroup}.jpg`
+                });
+            }
+            return arr;
+        }
+
+        // 產生一個友善的缺圖提示圖片 (寬度改為 700x400，符合 14:8 比例)
+        function getFallbackImage(text) {
+            return `https://placehold.co/700x400/f87171/ffffff?text=${encodeURIComponent(text)}`;
+        }
+
+        // 初始化資料
+        function initApp() {
+            try {
+                const saved = localStorage.getItem('hohoCardsData');
+                if (saved) {
+                    cardsData = JSON.parse(saved);
+                    if(cardsData.length !== TOTAL_CARDS) throw new Error("Data mismatch");
+                } else {
+                    cardsData = generateDefaultCards();
+                }
+            } catch (e) {
+                console.error("載入資料失敗，使用預設值", e);
+                cardsData = generateDefaultCards();
+            }
+            renderAdminGrid();
+        }
+
+        function saveData() {
+            try {
+                localStorage.setItem('hohoCardsData', JSON.stringify(cardsData));
+            } catch (e) {
+                alert("儲存空間不足！本次變更僅暫存於畫面中。");
+            }
+        }
+
+        function resetToDefaults() {
+            if(confirm('這將清除您手動在網頁上傳或修改的覆蓋設定，恢復成讀取 assets/images/ 資料夾的狀態。確定嗎？')) {
+                cardsData = generateDefaultCards();
+                saveData();
+                renderAdminGrid();
+            }
+        }
+
+        // --- 視圖切換控制 ---
+        function switchMainView(view) {
+            const userView = document.getElementById('userView');
+            const adminView = document.getElementById('adminView');
+            const navUserBtn = document.getElementById('navUserBtn');
+            const navAdminBtn = document.getElementById('navAdminBtn');
+
+            if (view === 'user') {
+                userView.classList.remove('hidden');
+                adminView.classList.add('hidden');
+                navUserBtn.className = "px-4 py-2 rounded-full font-medium transition-colors bg-amber-100 text-amber-800";
+                navAdminBtn.className = "px-4 py-2 rounded-full font-medium transition-colors text-gray-500 hover:bg-gray-100";
+                resetApp(); 
+            } else {
+                userView.classList.add('hidden');
+                adminView.classList.remove('hidden');
+                navAdminBtn.className = "px-4 py-2 rounded-full font-medium transition-colors bg-amber-100 text-amber-800";
+                navUserBtn.className = "px-4 py-2 rounded-full font-medium transition-colors text-gray-500 hover:bg-gray-100";
+                renderAdminGrid();
+            }
+        }
+
+        function hideAllSteps() {
+            document.getElementById('questionSection').classList.add('hidden');
+            document.getElementById('shuffleSection').classList.add('hidden');
+            document.getElementById('drawSection').classList.add('hidden');
+            document.getElementById('resultSection').classList.add('hidden');
+        }
+
+
+        // --- 管理者模式功能 (預覽/覆蓋) ---
+        function renderAdminGrid() {
+            const grid = document.getElementById('adminGrid');
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            grid.innerHTML = '';
+
+            const filtered = cardsData.filter(c => c.id.toString().includes(searchTerm));
+
+            filtered.forEach(card => {
+                const div = document.createElement('div');
+                const backGroup = Math.ceil(card.id / 20);
+                div.className = "bg-white rounded-xl p-2 shadow-sm border border-gray-100 hover:shadow-md transition-shadow flex flex-col";
+                
+                // 如果找不到圖片，會顯示提示文字
+                const fallbackUrl = getFallbackImage(`找不到\\nfront_${card.id}.jpg`);
+
+                div.innerHTML = `
+                    <div class="flex justify-between items-center mb-2 px-1">
+                        <span class="text-xs font-bold bg-amber-100 text-amber-800 px-2 py-1 rounded">No.${card.id}</span>
+                        <span class="text-[10px] text-gray-400">群組 ${backGroup}</span>
+                    </div>
+                    <!-- 改為 aspect-[14/8] -->
+                    <div class="aspect-[14/8] w-full bg-gray-100 rounded-lg overflow-hidden mb-2 relative group border border-gray-200">
+                        <img src="${card.frontImage}" class="w-full h-full object-cover" onerror="this.onerror=null; this.src='${fallbackUrl}'">
+                        <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer" onclick="openEditModal(${card.id})">
+                            <span class="bg-white text-gray-800 text-xs font-bold px-3 py-1 rounded-full">修改設定</span>
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(div);
+            });
+        }
+
+        function openEditModal(id) {
+            const card = cardsData.find(c => c.id === id);
+            if (!card) return;
+
+            const backGroup = Math.ceil(card.id / 20);
+            document.getElementById('editingCardId').value = card.id;
+            document.getElementById('editModalTitle').textContent = `暫時覆蓋卡片 No.${card.id}`;
+            document.getElementById('previewBackLabel').textContent = `背面預覽 (群組 ${backGroup})`;
+            
+            const fUrl = card.frontImage.startsWith('data:image') ? '' : card.frontImage;
+            const bUrl = (card.backImage || '').startsWith('data:image') ? '' : card.backImage;
+            
+            document.getElementById('inputFrontUrl').value = fUrl;
+            document.getElementById('inputBackUrl').value = bUrl;
+
+            updatePreview('front', card.frontImage, card.id);
+            updatePreview('back', card.backImage, card.id);
+
+            document.getElementById('editModal').classList.remove('hidden');
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').classList.add('hidden');
+        }
+
+        function handleFileUpload(event, type) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const base64Str = e.target.result;
+                if(type === 'front') document.getElementById('inputFrontUrl').value = '';
+                if(type === 'back') document.getElementById('inputBackUrl').value = '';
+                const id = document.getElementById('editingCardId').value;
+                updatePreview(type, base64Str, id);
+                document.getElementById(`preview${type === 'front' ? 'Front' : 'Back'}`).dataset.b64 = base64Str;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function updatePreview(type, directSrc = null, cardId = 'X') {
+            const src = directSrc !== null ? directSrc : document.getElementById(`input${type === 'front' ? 'Front' : 'Back'}Url`).value;
+            
+            if (type === 'front') {
+                const img = document.getElementById('previewFront');
+                const fallback = getFallbackImage(`找不到\\nfront_${cardId}.jpg`);
+                img.onerror = function() { this.src = fallback; this.onerror = null; };
+                img.src = src || fallback;
+                if(directSrc === null) img.dataset.b64 = ''; 
+            } else {
+                const container = document.getElementById('previewBackContainer');
+                if (src) {
+                    const backGroup = cardId !== 'X' ? Math.ceil(cardId / 20) : 'X';
+                    const fallback = getFallbackImage(`找不到\\nback_${backGroup}.jpg`);
+                    container.innerHTML = `<img id="previewBack" src="${src}" class="w-full h-full object-cover" onerror="this.onerror=null; this.src='${fallback}'">`;
+                    if(directSrc === null && document.getElementById('previewBack')) document.getElementById('previewBack').dataset.b64 = '';
+                } else {
+                    const backGroup = cardId !== 'X' ? Math.ceil(cardId / 20) : '?';
+                    container.innerHTML = `<p class="text-xs text-gray-500 font-medium">預設群組 ${backGroup}</p>`;
+                }
+            }
+        }
+
+        function saveCardEdit() {
+            const id = parseInt(document.getElementById('editingCardId').value);
+            const cardIndex = cardsData.findIndex(c => c.id === id);
+            if (cardIndex === -1) return;
+
+            const inputFront = document.getElementById('inputFrontUrl').value;
+            const inputBack = document.getElementById('inputBackUrl').value;
+            
+            const pFront = document.getElementById('previewFront');
+            const pBack = document.getElementById('previewBack'); 
+
+            const finalFront = inputFront || (pFront.dataset.b64 ? pFront.dataset.b64 : cardsData[cardIndex].frontImage);
+            const finalBack = inputBack || (pBack && pBack.dataset.b64 ? pBack.dataset.b64 : (inputBack === '' && !pBack ? '' : cardsData[cardIndex].backImage));
+
+            cardsData[cardIndex].frontImage = finalFront;
+            cardsData[cardIndex].backImage = finalBack;
+
+            saveData();
+            renderAdminGrid();
+            closeEditModal();
+        }
+
+
+        // --- 使用者模式功能 (抽卡流程) ---
+        function resetApp() {
+            currentQuestion = "";
+            drawnCard = null;
+            document.getElementById('questionInput').value = "";
+            document.getElementById('displayQuestion').textContent = "";
+            document.getElementById('questionDisplayArea').classList.add('hidden');
+            
+            // 重置翻牌
+            document.getElementById('resultCardBox').classList.remove('flipped');
+            document.getElementById('resultActions').classList.replace('opacity-100', 'opacity-0');
+            document.getElementById('resultActions').classList.replace('translate-y-0', 'translate-y-4');
+
+            hideAllSteps();
+            document.getElementById('questionSection').classList.remove('hidden');
+        }
+
+        function goToShuffle() {
+            const q = document.getElementById('questionInput').value.trim();
+            currentQuestion = q;
+            
+            hideAllSteps();
+            
+            shuffleRemaining = 3;
+            document.getElementById('shuffleCount').textContent = shuffleRemaining;
+            document.getElementById('shuffleCardsBtn').classList.remove('hidden');
+            document.getElementById('cutCardsBtn').classList.add('hidden');
+            document.getElementById('shuffleText').textContent = "準備洗牌...";
+            
+            // 停止動畫
+            document.getElementById('deckAnim1').classList.remove('animating-shuffle');
+            document.getElementById('deckAnim2').classList.remove('animating-shuffle');
+            document.getElementById('deckAnim3').classList.remove('animating-shuffle');
+
+            document.getElementById('shuffleSection').classList.remove('hidden');
+        }
+
+        function performShuffle() {
+            document.getElementById('shuffleText').textContent = "洗牌中...";
+            document.getElementById('deckAnim1').classList.add('animating-shuffle');
+            document.getElementById('deckAnim2').classList.add('animating-shuffle');
+            document.getElementById('deckAnim3').classList.add('animating-shuffle');
+            
+            // 亂數打亂陣列順序
+            cardsData.sort(() => Math.random() - 0.5);
+
+            setTimeout(() => {
+                document.getElementById('deckAnim1').classList.remove('animating-shuffle');
+                document.getElementById('deckAnim2').classList.remove('animating-shuffle');
+                document.getElementById('deckAnim3').classList.remove('animating-shuffle');
+
+                shuffleRemaining--;
+                document.getElementById('shuffleCount').textContent = shuffleRemaining;
+                
+                if (shuffleRemaining <= 0) {
+                    document.getElementById('shuffleText').textContent = "洗牌完成！";
+                    document.getElementById('shuffleCardsBtn').classList.add('hidden');
+                    document.getElementById('cutCardsBtn').classList.remove('hidden');
+                } else {
+                    document.getElementById('shuffleText').textContent = "準備洗牌...";
+                }
+            }, 600); 
+        }
+
+        function goToDraw() {
+            hideAllSteps();
+            document.getElementById('drawSection').classList.remove('hidden');
+            createFanSpread();
+        }
+
+        function createFanSpread() {
+            const deck = document.getElementById('cardDeck');
+            deck.innerHTML = '';
+            
+            const containerWidth = deck.parentElement.offsetWidth || window.innerWidth;
+            const isMobile = containerWidth < 500;
+            
+            // 將 140 張全部放到扇形展開中，確保牌背多樣性能被看見
+            const visualCardCount = cardsData.length; 
+            // 針對橫圖微調半徑與 Y 軸，讓扇形更自然
+            const radius = isMobile ? (containerWidth / 2) + 20 : 280; 
+            const totalAngle = isMobile ? 120 : 150;
+            const angleStep = totalAngle / (visualCardCount - 1);
+            const startAngle = -totalAngle / 2;
+            const yOffset = isMobile ? 80 : 130; 
+            
+            for (let i = 0; i < visualCardCount; i++) {
+                const card = document.createElement('div');
+                const actualCard = cardsData[i]; 
+                
+                // 設定成該卡片獨有的牌背圖案
+                card.className = 'fan-card';
+                card.style.backgroundImage = `url('${actualCard.backImage}')`;
+                
+                const angle = startAngle + (i * angleStep);
+                const radian = angle * Math.PI / 180;
+                
+                // 計算扇形座標
+                const x = radius * Math.sin(radian);
+                const y = -Math.cos(radian) * radius * (isMobile ? 0.3 : 0.4) + yOffset;
+                
+                card.style.transform = `translate(${x}px, ${y}px) rotate(${angle}deg)`;
+                card.style.zIndex = 100 - Math.abs(i - Math.floor(visualCardCount / 2));
+                
+                card.onclick = function() {
+                    if (this.classList.contains('selected')) return;
+                    this.classList.add('selected'); 
+                    
+                    setTimeout(() => {
+                        // 點擊後，直接將綁定的這張卡片送進結果頁
+                        pickCardAndShowResult(actualCard);
+                    }, 400);
+                };
+                
+                deck.appendChild(card);
+            }
+        }
+
+        function pickCardAndShowResult(selectedCard) {
+            drawnCard = selectedCard; // 記錄抽出的卡片
+            
+            hideAllSteps();
+            
+            if (currentQuestion) {
+                document.getElementById('questionDisplayArea').classList.remove('hidden');
+                document.getElementById('displayQuestion').textContent = `「${currentQuestion}」`;
+            }
+
+            // 計算它是第幾組牌背，用來處理報錯預設圖
+            const backGroup = Math.ceil(drawnCard.id / 20);
+
+            // 設定卡背
+            const backEl = document.getElementById('resultCardBack');
+            const backSrc = drawnCard.backImage ? drawnCard.backImage : `assets/images/back_${backGroup}.jpg`;
+            const backFallback = getFallbackImage(`找不到\\nback_${backGroup}.jpg`);
+            
+            // 橫式卡背的結構調整
+            backEl.innerHTML = `
+                <img src="${backSrc}" class="w-full h-full object-cover" onerror="this.onerror=null; this.src='${backFallback}'; this.nextElementSibling.style.display='flex';">
+                <div class="hidden absolute inset-0 flex-col items-center justify-center text-white text-center">
+                    <div class="w-12 h-12 border-4 border-white/70 rounded-full flex items-center justify-center mb-1">
+                        <div class="w-6 h-6 bg-white/70 rounded-full"></div>
+                    </div>
+                    <p class="font-bold tracking-widest text-sm">HOHO CARD</p>
+                </div>
+            `;
+            backEl.style.background = 'transparent';
+
+            // 設定卡片正面
+            const frontEl = document.getElementById('resultCardFront');
+            const frontFallback = getFallbackImage(`找不到\\nfront_${drawnCard.id}.jpg`);
+            frontEl.onerror = function() { this.src = frontFallback; this.onerror = null; };
+            frontEl.src = drawnCard.frontImage;
+
+            document.getElementById('resultSection').classList.remove('hidden');
+        }
+
+        // 翻牌機制
+        function flipCard() {
+            const box = document.getElementById('resultCardBox');
+            if (!box.classList.contains('flipped')) {
+                box.classList.add('flipped');
+                setTimeout(() => {
+                    const actions = document.getElementById('resultActions');
+                    actions.classList.remove('opacity-0', 'translate-y-4');
+                    actions.classList.add('opacity-100', 'translate-y-0');
+                }, 600);
+            }
+        }
+
+        window.onload = initApp;
+
+    </script>
+</body>
+</html>
