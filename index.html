@@ -5,6 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hoho 療癒卡</title>
     
+    <!-- 1. 加入 PWA 相關 meta 標籤 -->
+    <link rel="manifest" href="manifest.webmanifest">
+    <meta name="theme-color" content="#fdfbf7">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <!-- 請在 assets/icons/ 內準備您的 icon -->
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/icons/icon-512x512.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="assets/icons/icon-192x192.png">
+
     <!-- 載入 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
@@ -65,6 +74,13 @@
             background: linear-gradient(135deg, #fcd34d, #fb923c);
             background-size: cover;
             background-position: center;
+        }
+        /* 2. 手機版扇形卡片尺寸自適應縮小 */
+        @media (max-width: 640px) {
+            .fan-card {
+                width: 84px; 
+                height: 48px;
+            }
         }
         .fan-card:hover { 
             transform: translateY(-20px) scale(1.2) !important; 
@@ -141,16 +157,19 @@
 </head>
 <body class="min-h-screen flex flex-col">
 
-    <!-- 頂部導覽列 -->
-    <nav class="bg-white shadow-sm px-6 py-4 flex justify-between items-center sticky top-0 z-50">
-        <div class="flex items-center gap-2 text-amber-700 font-bold text-xl cursor-pointer" onclick="switchMainView('user')">
+    <!-- 頂部導覽列 (3. 加入響應式排版與安裝按鈕) -->
+    <nav class="bg-white shadow-sm px-4 md:px-6 py-3 md:py-4 flex flex-wrap justify-between items-center sticky top-0 z-50 gap-2">
+        <div class="flex items-center gap-2 text-amber-700 font-bold text-lg md:text-xl cursor-pointer" onclick="switchMainView('user')">
             <span class="text-2xl">✨</span> Hoho 療癒卡
         </div>
-        <div class="flex gap-4">
-            <button id="navUserBtn" onclick="switchMainView('user')" class="px-4 py-2 rounded-full font-medium transition-colors bg-amber-100 text-amber-800">
+        <div class="flex flex-wrap gap-2 md:gap-4 items-center">
+            <button id="installAppBtn" class="hidden px-3 py-1.5 md:px-4 md:py-2 rounded-full font-medium transition-colors bg-blue-100 text-blue-800 text-sm md:text-base shadow-sm">
+                📲 安裝 App
+            </button>
+            <button id="navUserBtn" onclick="switchMainView('user')" class="px-3 py-1.5 md:px-4 md:py-2 rounded-full font-medium transition-colors bg-amber-100 text-amber-800 text-sm md:text-base">
                 開始抽卡
             </button>
-            <button id="navAdminBtn" onclick="switchMainView('admin')" class="px-4 py-2 rounded-full font-medium transition-colors text-gray-500 hover:bg-gray-100">
+            <button id="navAdminBtn" onclick="switchMainView('admin')" class="px-3 py-1.5 md:px-4 md:py-2 rounded-full font-medium transition-colors text-gray-500 hover:bg-gray-100 text-sm md:text-base">
                 圖檔預覽
             </button>
         </div>
@@ -270,7 +289,7 @@
                 </div>
             </div>
 
-            <!-- 卡片網格 (原本的 col-cols 改寬一點以適應橫圖) -->
+            <!-- 卡片網格 -->
             <div id="adminGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                 <!-- 由 JavaScript 動態生成 -->
             </div>
@@ -357,11 +376,10 @@
         let shuffleRemaining = 3;
         let drawnCard = null;
 
-        // 【重點更新】7 種牌背，每組 20 張
+        // 生成預設卡片資料
         function generateDefaultCards() {
             const arr = [];
             for (let i = 1; i <= TOTAL_CARDS; i++) {
-                // 計算這是第幾組牌背 (1~7)
                 const backGroup = Math.ceil(i / 20); 
                 arr.push({
                     id: i,
@@ -372,7 +390,7 @@
             return arr;
         }
 
-        // 產生一個友善的缺圖提示圖片 (寬度改為 700x400，符合 14:8 比例)
+        // 產生一個友善的缺圖提示圖片
         function getFallbackImage(text) {
             return `https://placehold.co/700x400/f87171/ffffff?text=${encodeURIComponent(text)}`;
         }
@@ -420,14 +438,14 @@
             if (view === 'user') {
                 userView.classList.remove('hidden');
                 adminView.classList.add('hidden');
-                navUserBtn.className = "px-4 py-2 rounded-full font-medium transition-colors bg-amber-100 text-amber-800";
-                navAdminBtn.className = "px-4 py-2 rounded-full font-medium transition-colors text-gray-500 hover:bg-gray-100";
+                navUserBtn.className = "px-3 py-1.5 md:px-4 md:py-2 rounded-full font-medium transition-colors bg-amber-100 text-amber-800 text-sm md:text-base";
+                navAdminBtn.className = "px-3 py-1.5 md:px-4 md:py-2 rounded-full font-medium transition-colors text-gray-500 hover:bg-gray-100 text-sm md:text-base";
                 resetApp(); 
             } else {
                 userView.classList.add('hidden');
                 adminView.classList.remove('hidden');
-                navAdminBtn.className = "px-4 py-2 rounded-full font-medium transition-colors bg-amber-100 text-amber-800";
-                navUserBtn.className = "px-4 py-2 rounded-full font-medium transition-colors text-gray-500 hover:bg-gray-100";
+                navAdminBtn.className = "px-3 py-1.5 md:px-4 md:py-2 rounded-full font-medium transition-colors bg-amber-100 text-amber-800 text-sm md:text-base";
+                navUserBtn.className = "px-3 py-1.5 md:px-4 md:py-2 rounded-full font-medium transition-colors text-gray-500 hover:bg-gray-100 text-sm md:text-base";
                 renderAdminGrid();
             }
         }
@@ -453,7 +471,6 @@
                 const backGroup = Math.ceil(card.id / 20);
                 div.className = "bg-white rounded-xl p-2 shadow-sm border border-gray-100 hover:shadow-md transition-shadow flex flex-col";
                 
-                // 如果找不到圖片，會顯示提示文字
                 const fallbackUrl = getFallbackImage(`找不到\\nfront_${card.id}.jpg`);
 
                 div.innerHTML = `
@@ -461,7 +478,6 @@
                         <span class="text-xs font-bold bg-amber-100 text-amber-800 px-2 py-1 rounded">No.${card.id}</span>
                         <span class="text-[10px] text-gray-400">群組 ${backGroup}</span>
                     </div>
-                    <!-- 改為 aspect-[14/8] -->
                     <div class="aspect-[14/8] w-full bg-gray-100 rounded-lg overflow-hidden mb-2 relative group border border-gray-200">
                         <img src="${card.frontImage}" class="w-full h-full object-cover" onerror="this.onerror=null; this.src='${fallbackUrl}'">
                         <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer" onclick="openEditModal(${card.id})">
@@ -637,27 +653,23 @@
             const containerWidth = deck.parentElement.offsetWidth || window.innerWidth;
             const isMobile = containerWidth < 500;
             
-            // 將 140 張全部放到扇形展開中，確保牌背多樣性能被看見
             const visualCardCount = cardsData.length; 
-            // 針對橫圖微調半徑與 Y 軸，讓扇形更自然
-            const radius = isMobile ? (containerWidth / 2) + 20 : 280; 
-            const totalAngle = isMobile ? 120 : 150;
+            const radius = isMobile ? (containerWidth / 2) + 10 : 280; 
+            const totalAngle = isMobile ? 100 : 150;
             const angleStep = totalAngle / (visualCardCount - 1);
             const startAngle = -totalAngle / 2;
-            const yOffset = isMobile ? 80 : 130; 
+            const yOffset = isMobile ? 60 : 130; 
             
             for (let i = 0; i < visualCardCount; i++) {
                 const card = document.createElement('div');
                 const actualCard = cardsData[i]; 
                 
-                // 設定成該卡片獨有的牌背圖案
                 card.className = 'fan-card';
                 card.style.backgroundImage = `url('${actualCard.backImage}')`;
                 
                 const angle = startAngle + (i * angleStep);
                 const radian = angle * Math.PI / 180;
                 
-                // 計算扇形座標
                 const x = radius * Math.sin(radian);
                 const y = -Math.cos(radian) * radius * (isMobile ? 0.3 : 0.4) + yOffset;
                 
@@ -669,7 +681,6 @@
                     this.classList.add('selected'); 
                     
                     setTimeout(() => {
-                        // 點擊後，直接將綁定的這張卡片送進結果頁
                         pickCardAndShowResult(actualCard);
                     }, 400);
                 };
@@ -679,7 +690,7 @@
         }
 
         function pickCardAndShowResult(selectedCard) {
-            drawnCard = selectedCard; // 記錄抽出的卡片
+            drawnCard = selectedCard;
             
             hideAllSteps();
             
@@ -688,7 +699,6 @@
                 document.getElementById('displayQuestion').textContent = `「${currentQuestion}」`;
             }
 
-            // 計算它是第幾組牌背，用來處理報錯預設圖
             const backGroup = Math.ceil(drawnCard.id / 20);
 
             // 設定卡背
@@ -696,7 +706,6 @@
             const backSrc = drawnCard.backImage ? drawnCard.backImage : `assets/images/back_${backGroup}.jpg`;
             const backFallback = getFallbackImage(`找不到\\nback_${backGroup}.jpg`);
             
-            // 橫式卡背的結構調整
             backEl.innerHTML = `
                 <img src="${backSrc}" class="w-full h-full object-cover" onerror="this.onerror=null; this.src='${backFallback}'; this.nextElementSibling.style.display='flex';">
                 <div class="hidden absolute inset-0 flex-col items-center justify-center text-white text-center">
@@ -730,7 +739,43 @@
             }
         }
 
-        window.onload = initApp;
+        // --- 5. PWA 安裝邏輯 ---
+        let deferredPrompt;
+        function setupPWAInstall() {
+            const installBtn = document.getElementById('installAppBtn');
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault(); 
+                deferredPrompt = e;
+                if(installBtn) {
+                    installBtn.classList.remove('hidden');
+                    installBtn.addEventListener('click', () => {
+                        deferredPrompt.prompt();
+                        deferredPrompt.userChoice.then((choiceResult) => {
+                            if (choiceResult.outcome === 'accepted') { 
+                                installBtn.classList.add('hidden'); 
+                            }
+                            deferredPrompt = null;
+                        });
+                    });
+                }
+            });
+        }
+
+        window.onload = () => {
+            initApp();
+            setupPWAInstall();
+        };
+
+        // 6. 註冊 Service Worker (加入協定檢查以避免在預覽環境報錯)
+        if ('serviceWorker' in navigator && (window.location.protocol === 'https:' || window.location.protocol === 'http:')) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./service-worker.js').catch(err => {
+                    console.log('Service Worker 註冊提示:', err);
+                });
+            });
+        } else {
+            console.log('Service Worker 註冊已略過：當前非 http/https 環境。上傳至 GitHub Pages 後將正常啟用 PWA 功能。');
+        }
 
     </script>
 </body>
