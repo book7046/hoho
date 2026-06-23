@@ -57,7 +57,7 @@
             display: flex; 
             justify-content: center; 
             align-items: center; 
-            overflow: hidden; 
+            overflow: visible; /* 1. 改為 visible，避免最旁邊的卡片放大時被切掉 */
             margin-top: 2rem;
         }
         .fan-card { 
@@ -175,7 +175,8 @@
         </div>
     </nav>
 
-    <main class="flex-1 overflow-y-auto relative">
+    <!-- 2. 加入 overflow-x-hidden 確保畫面永遠不會產生橫向捲軸 -->
+    <main class="flex-1 overflow-y-auto overflow-x-hidden relative">
         
         <!-- ==================== 使用者模式 (抽卡流程) ==================== -->
         <div id="userView" class="w-full h-full p-4">
@@ -651,11 +652,13 @@
             deck.innerHTML = '';
             
             const containerWidth = deck.parentElement.offsetWidth || window.innerWidth;
-            const isMobile = containerWidth < 500;
+            // 3. 對齊 CSS 的手機版寬度門檻
+            const isMobile = containerWidth < 640; 
             
             const visualCardCount = cardsData.length; 
-            const radius = isMobile ? (containerWidth / 2) + 10 : 280; 
-            const totalAngle = isMobile ? 100 : 150;
+            // 4. 縮小手機版半徑與展開角度 (半徑扣掉30，角度縮為90度)，確保牌被牢牢鎖定在螢幕內
+            const radius = isMobile ? (containerWidth / 2) - 30 : 280; 
+            const totalAngle = isMobile ? 90 : 150;
             const angleStep = totalAngle / (visualCardCount - 1);
             const startAngle = -totalAngle / 2;
             const yOffset = isMobile ? 60 : 130; 
